@@ -1,0 +1,46 @@
+name: Python package
+
+on: [push]
+
+jobs:
+  ci:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install poetry
+        uses: abatilo/actions-poetry@v2
+      - name: Setup a local virtual environment (if no poetry.toml file)
+        run: |
+          poetry config virtualenvs.create true --local
+          poetry config virtualenvs.in-project true --local
+      - uses: actions/cache@v3
+        name: Define a cache for the virtual environment
+        with:
+          path: ./.venv
+          key: venv-${{ hashFiles('poetry.lock') }}
+      - uses: actions/cache@v3
+        name: Define a cache for pre-commit
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-4|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Install the project dependencies
+        run: poetry install --sync --with dev
+      - name: Run static analysis
+        run: poetry run pre-commit run --show-diff-on-failure --color=always --all-files
+      - name: Run the automated tests
+        run: poetry run pytest -v
+
+      # - name: Build and publish to pypi
+      #   uses: JRubics/poetry-publish@v2.0
+      #   with:
+      #     pypi_token: ${{ secrets.PYPI_TOKEN }}
