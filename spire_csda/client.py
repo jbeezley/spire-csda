@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
@@ -9,40 +10,51 @@ from httpx import AsyncClient, HTTPStatusError, Request
 from tqdm.asyncio import tqdm
 
 from spire_csda.buffer import buffered
+from spire_csda.config import Settings
 from spire_csda.models.link import DownloadLink
 from spire_csda.models.item_collection import CSDAItemCollection
 from spire_csda.models.search import CSDASearch
 from spire_csda.transport import RetryableTransport
 
 logger = logging.getLogger(__name__)
+_session: ContextVar[AsyncClient] = ContextVar("session")
+
+
+class CSDAClientError(Exception):
+    pass
 
 
 class Client(object):
-    _client_id = "7agre1j1gooj2jng6mkddasp9o"
+    _cognito_client_id = "7agre1j1gooj2jng6mkddasp9o"
 
-    def __init__(
-        self,
-        username: str,
-        password: str,
-        base_url: str = "https://nasa-csda.wx.spire.com/",
-    ) -> None:
-        self.username = username
-        self.password = password
-        self.base_url = base_url
+    def __init__(self) -> None:
+        config = Settings.current()
+        self.username = config.username
+        self.password = config.password
+        self.base_url = config.api
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
         self._expiration: Optional[datetime] = None
 
+    @property
+    def current_session(self) -> AsyncClient:
+        try:
+            return _session.get()
+        except LookupError:
+            raise CSDAClientError("Client method must be used inside a session context.")
+
     @asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncClient]:
-        async def set_auth(request: Request):
-            if self.base_url in str(request.url):
-                request.headers.setdefault("Authentication", f"Bearer {await self.get_token(session)}")
+        config = Settings.current()
+        transport = RetryableTransport(http2=config.use_http2)
 
-        transport = RetryableTransport(http2=True)
+        async def set_auth(request: Request):
+            if str(self.base_url) in str(request.url):
+                request.headers.setdefault("Authentication", f"Bearer {await self.get_token()}")
+
         async with AsyncClient(
             transport=transport,
-            base_url=self.base_url,
+            base_url=str(self.base_url),
             timeout=None,
             event_hooks={
                 "request": [set_auth],
@@ -50,14 +62,16 @@ class Client(object):
         ) as session:
             if self._access_token is None:
                 await self._login(session)
+            token = _session.set(session)
             yield session
+            _session.reset(token)
 
     async def _login(self, session: AsyncClient) -> None:
         data = {
             "AuthFlow": "USER_PASSWORD_AUTH",
-            "ClientId": self._client_id,
+            "ClientId": self._cognito_client_id,
             "AuthParameters": {
-                "PASSWORD": self.password,
+                "PASSWORD": self.password.get_secret_value(),
                 "USERNAME": self.username,
             },
         }
@@ -78,7 +92,7 @@ class Client(object):
         for _ in range(2):
             data = {
                 "AuthFlow": "REFRESH_TOKEN_AUTH",
-                "ClientId": self._client_id,
+                "ClientId": self._cognito_client_id,
                 "AuthParameters": {
                     "REFRESH_TOKEN": self._refresh_token,
                 },
@@ -96,13 +110,14 @@ class Client(object):
                 break
             await self._login(session)
         else:
-            raise ValueError("Authentication failure")
+            raise CSDAClientError("Authentication failure")
 
         assert self._access_token, "Login failed"
         auth = resp.json()["AuthenticationResult"]
         self._access_token = auth["AccessToken"]
 
-    async def get_token(self, session: AsyncClient) -> str:
+    async def get_token(self) -> str:
+        session = self.current_session
         assert self._access_token, "Login failed"
         if not self._expiration or self._expiration < datetime.now():
             await self._refresh(session)
@@ -110,13 +125,13 @@ class Client(object):
 
     async def search(
         self,
-        session: AsyncClient,
         query: CSDASearch,
         *,
         limit: Optional[int] = None,
         parallel: int = 1,
         page_size: int = 100,
     ) -> AsyncIterator[CSDAItemCollection]:
+        session = self.current_session
         token: Optional[str] = None
         item_count = 0
         while True:
@@ -135,14 +150,13 @@ class Client(object):
 
     async def search_parallel(
         self,
-        session: AsyncClient,
         query: CSDASearch,
         *,
         limit: Optional[int] = None,
         **kwargs,
     ) -> AsyncIterator[CSDAItemCollection]:
         async def run_search(query: CSDASearch):
-            async for item in self.search(session, query, **kwargs):
+            async for item in self.search(query, **kwargs):
                 yield item
 
         def iterate_partitions(query: CSDASearch):
@@ -165,7 +179,6 @@ class Client(object):
 
     async def download_links(
         self,
-        session: AsyncClient,
         query: CSDASearch,
         *,
         limit: Optional[int] = None,
@@ -186,7 +199,7 @@ class Client(object):
                         yield url
 
         streamer = stream.flatmap(
-            self.search_parallel(session, query, page_size=page_size),
+            self.search_parallel(query, page_size=page_size),
             get_urls,
             task_limit=1,
         )
@@ -197,13 +210,13 @@ class Client(object):
 
     async def download_file(
         self,
-        session: AsyncClient,
         url: Union[str, DownloadLink],
         prefix: str,
         *,
         overwrite: bool = False,
         progress: bool = False,
     ) -> bool:
+        session = self.current_session
         if not isinstance(url, DownloadLink):
             url = DownloadLink.parse_url(url)
         prefix_path = Path(prefix.format_map(url.model_dump()))
@@ -244,7 +257,6 @@ class Client(object):
 
     async def download_query(
         self,
-        session: AsyncClient,
         query: CSDASearch,
         *,
         overwrite: bool = False,
@@ -256,13 +268,13 @@ class Client(object):
     ) -> AsyncIterator[DownloadLink]:
         async def download_file(link: DownloadLink):
             try:
-                return link, await self.download_file(session, link, prefix=prefix, overwrite=overwrite, progress=False)
+                return link, await self.download_file(link, prefix=prefix, overwrite=overwrite, progress=False)
             except HTTPStatusError:
                 logger.exception(str(link))
             return link, False
 
         streamer = stream.map(
-            self.download_links(session, query, limit=limit, page_size=page_size),
+            self.download_links(query, limit=limit, page_size=page_size),
             download_file,
             task_limit=parallel,
         )

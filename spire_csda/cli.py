@@ -6,16 +6,24 @@ from tqdm.asyncio import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from spire_csda.client import Client
+from spire_csda.config import Settings
 from spire_csda.models.search import CSDASearch
 
 
 @click.group()
-@click.option("--username", envvar="CSDA_USERNAME")
-@click.option("--password", envvar="CSDA_PASSWORD")
+@click.option("--username", envvar="CSDA_USERNAME", required=False)
+@click.option("--password", envvar="CSDA_PASSWORD", required=False)
+@click.option("--settings-file", envvar="CSDA_SETTINGS_FILE", default=".env")
 @click.pass_context
-def cli(ctx, username, password):
+def cli(ctx, username, password, settings_file):
+    config = Settings(_env_file=settings_file)
+    if username is not None:
+        config = config.copy(update={"username": username})
+    if password is not None:
+        config = config.copy(update={"password": username})
     ctx.ensure_object(dict)
-    ctx.obj["client"] = Client(username=username, password=password)
+    ctx.obj["config"] = ctx.with_resource(config.context())
+    ctx.obj["client"] = Client()
 
 
 @cli.command()
@@ -32,8 +40,8 @@ async def token(obj):
     curl -H "Authentication:Bearer <token>" https://nasa-csda.wx.spire.com/stac/collections
     """
     client: Client = obj["client"]
-    async with client.session() as session:
-        click.echo(await client.get_token(session))
+    async with client.session():
+        click.echo(await client.get_token())
 
 
 @cli.command()
@@ -49,12 +57,7 @@ async def token(obj):
     "--mode",
     type=click.Choice(["download", "list", "raw"]),
     default="download",
-    help="""
-\b
-download: download files
-list:     show urls
-raw:      show raw items
-""",
+    help="Operational mode (see help)",
 )
 @click.option(
     "--progress/--no-progress",
@@ -69,7 +72,7 @@ raw:      show raw items
 @click.option(
     "--overwrite/--no-overwrite",
     default=True,
-    help="Overwrite existing files",
+    help="Overwrite existing files when downloading",
 )
 @click.pass_context
 async def query(
@@ -89,6 +92,30 @@ async def query(
 ):
     """
     Query data from the CSDA STAC catalog.
+
+    This command can return data in three modes:
+
+    \b
+    * download: download files
+    * list:     show urls
+    * raw:      show raw geojson items
+
+    When in download mode, you can configure the path where the file is placed
+    with a format-style string as the `destination` parameter. This parameter
+    allows you to provide any static path as well as sort the downloads into
+    prefixes based on properties of the file.  These properties include:
+
+    \b
+    * collection
+    * datetime
+    * receiver
+    * product
+
+    In addition, it supports standard python format strings, so you can extract
+    components of the datetime as path elements such as `{datetime:%Y-%m-%d}`
+    to make a subdirectory for each day.
+
+    The default destination is `csda/{product}/{datetime:%Y}/{datetime:%m}/{datetime:%d}`.
     """
     obj = ctx.obj
     if min_latitude > max_latitude:
@@ -123,11 +150,10 @@ async def query(
         max_longitude,
         products,
     )
-    async with client.session() as session:
+    async with client.session():
         if mode == "download":
             with tqdm(unit=" files", disable=not progress) as pbar, logging_redirect_tqdm():
                 async for link in client.download_query(
-                    session,
                     search,
                     limit=limit,
                     progress=progress,
@@ -136,8 +162,8 @@ async def query(
                 ):
                     pbar.update(1)
         elif mode == "list":
-            async for link in client.download_links(session, search, limit=limit):
+            async for link in client.download_links(search, limit=limit):
                 click.echo(link)
         elif mode == "raw":
-            async for item in client.search_parallel(session, search, limit=limit):
+            async for item in client.search_parallel(search, limit=limit):
                 click.echo(item.json(exclude_none=True, by_alias=True))

@@ -15,6 +15,11 @@ async def _producer(it: AsyncIterable[Any], queue: Queue) -> None:
 
 
 async def buffered(it: AsyncIterable[T], size: int, limit: Optional[int] = None) -> AsyncIterable[T]:
+    """Buffer values from an iterator in the background.
+
+    This function creates an asynchronous task that pushes data into a
+    bounded queue.
+    """
     queue: Queue = Queue(size)
     task = create_task(_producer(it, queue))
     count = 0
