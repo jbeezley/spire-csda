@@ -1,0 +1,91 @@
+[tool.poetry]
+name = "spire-csda"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+httpx = {extras = ["http2"], version = "^0.27.0"}
+tenacity = "^9.0.0"
+click = "^8.1.7"
+tqdm = "^4.66.4"
+pydantic = "^2.8.2"
+stac-pydantic = "^3.1.1"
+asyncclick = "^8.1.7.2"
+aiostream = "^0.6.2"
+python-dateutil = "^2.9.0.post0"
+
+[tool.poetry.scripts]
+spire-csda = "spire_csda.cli:cli"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.4.2"
+flake8 = "^7.1.0"
+mypy = "^1.11.1"
+types-pytz = "^2024.1.0.20240417"
+types-python-dateutil = "^2.9.0.20240316"
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+pattern  = "^v(?P<base>\\d+\\.\\d+\\.\\d+)(-?((?P<stage>[a-zA-Z]+)\\.?(?P<revision>\\d+)?))?"
+format-jinja = """
+    {%- if distance == 0 -%}
+        {{- base -}}
+    {%- else -%}
+        {{- base }}.dev{{ distance }}+g{{commit}}
+    {%- endif -%}
+"""
+format-jinja-imports = [
+    { module = "datetime", item = "datetime" }
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 132
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.flake8]
+max-line-length = 132
+max-complexity = 18
+select = ["B", "C", "E", "F", "W", "T4", "B9"]
+ignore = ["E231",  # conflicts with black
+          "W503",  # conflicts with black
+          "N805"]  # conflicts with pydantic validators
+
+[tool.isort]
+profile = "black"
+line_length = 132
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+
+allow_redefinition = false
+check_untyped_defs = true
+ignore_errors = false
+ignore_missing_imports = true
+local_partial_types = true
+strict_equality = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
