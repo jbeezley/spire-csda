@@ -3,7 +3,7 @@ from contextvars import ContextVar
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
-from typing import AsyncIterator, Optional, Union
+from typing import AsyncIterator, Iterator, Optional, Union
 
 from aiostream import stream
 from httpx import AsyncClient, HTTPStatusError, Request
@@ -25,8 +25,6 @@ class CSDAClientError(Exception):
 
 
 class Client(object):
-    _cognito_client_id = "7agre1j1gooj2jng6mkddasp9o"
-
     def __init__(self) -> None:
         config = Settings.current()
         self.username = config.username
@@ -67,9 +65,10 @@ class Client(object):
             _session.reset(token)
 
     async def _login(self, session: AsyncClient) -> None:
+        config = Settings.current()
         data = {
             "AuthFlow": "USER_PASSWORD_AUTH",
-            "ClientId": self._cognito_client_id,
+            "ClientId": config.cognito_client_id,
             "AuthParameters": {
                 "PASSWORD": self.password.get_secret_value(),
                 "USERNAME": self.username,
@@ -88,11 +87,13 @@ class Client(object):
         self._refresh_token = auth["RefreshToken"]
 
     async def _refresh(self, session: AsyncClient) -> None:
+        config = Settings.current()
+
         # If the refrest token has expired, we try logging in again.
         for _ in range(2):
             data = {
                 "AuthFlow": "REFRESH_TOKEN_AUTH",
-                "ClientId": self._cognito_client_id,
+                "ClientId": config.cognito_client_id,
                 "AuthParameters": {
                     "REFRESH_TOKEN": self._refresh_token,
                 },
@@ -155,11 +156,12 @@ class Client(object):
         limit: Optional[int] = None,
         **kwargs,
     ) -> AsyncIterator[CSDAItemCollection]:
-        async def run_search(query: CSDASearch):
-            async for item in self.search(query, **kwargs):
-                yield item
+        async def run_search(*query: CSDASearch) -> AsyncIterator[CSDAItemCollection]:
+            for q in query:
+                async for item in self.search(q, **kwargs):
+                    yield item
 
-        def iterate_partitions(query: CSDASearch):
+        def iterate_partitions(query: CSDASearch) -> Iterator[CSDASearch]:
             for month_partition in query.split_by_datetime():
                 for product_partition in month_partition.split_by_product():
                     yield product_partition
@@ -187,16 +189,17 @@ class Client(object):
         query = query.copy(update={"fields": {"include": {"assets"}}})
         found: set[str] = set()
 
-        async def get_urls(items: CSDAItemCollection) -> AsyncIterator[DownloadLink]:
-            for item in items.features:
-                for asset in item.assets.values():
-                    try:
-                        url = DownloadLink.parse_url(f"{self.base_url}{asset.href.lstrip('/')}")
-                    except Exception:
-                        logger.exception(f"Could not parse {asset.href}")
-                    if url.file not in found:
-                        found.add(url.file)
-                        yield url
+        async def get_urls(*items: CSDAItemCollection) -> AsyncIterator[DownloadLink]:
+            for _items in items:
+                for item in _items.features:
+                    for asset in item.assets.values():
+                        try:
+                            url = DownloadLink.parse_url(f"{self.base_url}{asset.href.lstrip('/')}")
+                        except Exception:
+                            logger.exception(f"Could not parse {asset.href}")
+                        if url.file not in found:
+                            found.add(url.file)
+                            yield url
 
         streamer = stream.flatmap(
             self.search_parallel(query, page_size=page_size),
@@ -266,7 +269,7 @@ class Client(object):
         page_size: int = 100,
         progress: bool = False,
     ) -> AsyncIterator[DownloadLink]:
-        async def download_file(link: DownloadLink):
+        async def download_file(link: DownloadLink) -> tuple[DownloadLink, bool]:
             try:
                 return link, await self.download_file(link, prefix=prefix, overwrite=overwrite, progress=False)
             except HTTPStatusError:

@@ -12,5 +12,5 @@ repos:
     rev: v1.11.1
     hooks:
     - id: mypy
-      additional_dependencies: [pydantic, types-pytz, types-python-dateutil]
+      additional_dependencies: [pydantic, types-pytz, types-python-dateutil, aiostream]
       exclude: "wx_products_stac/.*"
