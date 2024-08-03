@@ -101,6 +101,11 @@ class CSDASearch(ExtendedSearch):
         else:
             yield self
 
+    def split(self) -> Iterator[CSDASearch]:
+        for q in self.split_by_datetime():
+            for p in self.split_by_product():
+                yield p
+
     @classmethod
     def build_query(
         cls,

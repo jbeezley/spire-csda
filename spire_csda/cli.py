@@ -1,13 +1,20 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TypeVar
 
+from aiostream import pipe, stream
 import asyncclick as click
+from pydantic import SecretStr
 from tqdm.asyncio import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
+from spire_csda.buffer import Buffer
 from spire_csda.client import Client
 from spire_csda.config import Settings
+from spire_csda.models.item_collection import CSDAItemCollection
 from spire_csda.models.search import CSDASearch
+from spire_csda.streaming import download, extract_links, search
+
+T = TypeVar("T")
 
 
 @click.group()
@@ -18,12 +25,12 @@ from spire_csda.models.search import CSDASearch
 def cli(ctx, username, password, settings_file):
     config = Settings(_env_file=settings_file)
     if username is not None:
-        config = config.copy(update={"username": username})
+        config = config.model_copy(update={"username": username})
     if password is not None:
-        config = config.copy(update={"password": username})
+        config = config.model_copy(update={"password": SecretStr(password)})
     ctx.ensure_object(dict)
     ctx.obj["config"] = ctx.with_resource(config.context())
-    ctx.obj["client"] = Client()
+    ctx.obj["client"] = Client(config)
 
 
 @cli.command()
@@ -122,26 +129,26 @@ async def query(
         raise click.BadParameter(
             "min-latitude must be <= max-latitude",
             ctx,
-            "max-latitude",
-            ["min-latitude", "max-latitude"],
+            None,
+            "min-latitude, max-latitude",
         )
     if min_longitude > max_longitude:
         raise click.BadParameter(
             "min-longitude must be <= max-longitude",
             ctx,
-            "max-longitude",
-            ["min-longitude", "max-longitude"],
+            None,
+            "min-longitude, max-longitude",
         )
     if start_date > end_date:
         raise click.BadParameter(
             "start-date must be <= end-date",
             ctx,
-            "end-date",
-            ["start-date", "end-date"],
+            None,
+            "start-date, end-date",
         )
 
     client: Client = obj["client"]
-    search = CSDASearch.build_query(
+    query = CSDASearch.build_query(
         start_date,
         end_date,
         min_latitude,
@@ -150,20 +157,26 @@ async def query(
         max_longitude,
         products,
     )
-    async with client.session():
+
+    async def identity(x: T) -> T:
+        return x
+
+    async with client.session(), Buffer[CSDAItemCollection, CSDASearch](client.config.item_buffer_size) as buffered:
+        p = stream.iterate(query.split()) | search.pipe(client, task_limit=client.config.concurrent_searches) | buffered.pipe()
+        if mode != "raw":
+            p |= extract_links.pipe(client=client)  # type: ignore
+
         if mode == "download":
-            with tqdm(unit=" files", disable=not progress) as pbar, logging_redirect_tqdm():
-                async for link in client.download_query(
-                    search,
-                    limit=limit,
-                    progress=progress,
-                    overwrite=overwrite,
-                    prefix=destination,
-                ):
+            p = p | download.pipe(client=client, prefix=destination, task_limit=10) | pipe.filter(identity)  # type: ignore
+
+        if limit is not None:
+            p = p | pipe.take(limit)
+
+        with tqdm(unit=" files", disable=not progress) as pbar, logging_redirect_tqdm():
+            async with p.stream() as streamer:
+                async for item in streamer:
                     pbar.update(1)
-        elif mode == "list":
-            async for link in client.download_links(search, limit=limit):
-                click.echo(link)
-        elif mode == "raw":
-            async for item in client.search_parallel(search, limit=limit):
-                click.echo(item.json(exclude_none=True, by_alias=True))
+                    if mode == "raw":
+                        click.echo(item.model_dump_json())
+                    elif mode == "list":
+                        click.echo(item)

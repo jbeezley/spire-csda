@@ -1,15 +1,15 @@
+from __future__ import annotations
+
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from datetime import datetime, timedelta
 import logging
 from pathlib import Path
-from typing import AsyncIterator, Optional, Union
+from typing import AsyncIterable, AsyncIterator, Optional, Union
 
-from aiostream import stream
 from httpx import AsyncClient, HTTPStatusError, Request
 from tqdm.asyncio import tqdm
 
-from spire_csda.buffer import buffered
 from spire_csda.config import Settings
 from spire_csda.models.link import DownloadLink
 from spire_csda.models.item_collection import CSDAItemCollection
@@ -18,6 +18,7 @@ from spire_csda.transport import RetryableTransport
 
 logger = logging.getLogger(__name__)
 _session: ContextVar[AsyncClient] = ContextVar("session")
+_client: ContextVar[Client] = ContextVar("client")
 
 
 class CSDAClientError(Exception):
@@ -25,16 +26,21 @@ class CSDAClientError(Exception):
 
 
 class Client(object):
-    _cognito_client_id = "7agre1j1gooj2jng6mkddasp9o"
-
-    def __init__(self) -> None:
-        config = Settings.current()
-        self.username = config.username
-        self.password = config.password
-        self.base_url = config.api
+    def __init__(self, config: Optional[Settings] = None) -> None:
+        self.config = config or Settings.current()
+        self.username = self.config.username
+        self.password = self.config.password
+        self.base_url = self.config.api
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
         self._expiration: Optional[datetime] = None
+
+    @asynccontextmanager
+    async def stream_context(self) -> AsyncIterator[Client]:
+        token = _client.set(self)
+        async with self.session():
+            yield self
+        _client.reset(token)
 
     @property
     def current_session(self) -> AsyncClient:
@@ -42,6 +48,13 @@ class Client(object):
             return _session.get()
         except LookupError:
             raise CSDAClientError("Client method must be used inside a session context.")
+
+    @classmethod
+    def current_client(self) -> Client:
+        try:
+            return _client.get()
+        except LookupError:
+            raise CSDAClientError("Client method must be used inside a streaming context.")
 
     @asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncClient]:
@@ -66,56 +79,6 @@ class Client(object):
             yield session
             _session.reset(token)
 
-    async def _login(self, session: AsyncClient) -> None:
-        data = {
-            "AuthFlow": "USER_PASSWORD_AUTH",
-            "ClientId": self._cognito_client_id,
-            "AuthParameters": {
-                "PASSWORD": self.password.get_secret_value(),
-                "USERNAME": self.username,
-            },
-        }
-        headers = {
-            "Content-Type": "application/x-amz-json-1.1",
-            "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
-        }
-        resp = await session.post("https://cognito-idp.us-east-1.amazonaws.com/", json=data, headers=headers)
-        if resp.status_code != 200:
-            raise ValueError("Authentication failure")
-        auth = resp.json()["AuthenticationResult"]
-        self._expiration = datetime.now() + timedelta(seconds=auth["ExpiresIn"]) - timedelta(minutes=5)
-        self._access_token = auth["AccessToken"]
-        self._refresh_token = auth["RefreshToken"]
-
-    async def _refresh(self, session: AsyncClient) -> None:
-        # If the refrest token has expired, we try logging in again.
-        for _ in range(2):
-            data = {
-                "AuthFlow": "REFRESH_TOKEN_AUTH",
-                "ClientId": self._cognito_client_id,
-                "AuthParameters": {
-                    "REFRESH_TOKEN": self._refresh_token,
-                },
-            }
-            headers = {
-                "Content-Type": "application/x-amz-json-1.1",
-                "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
-            }
-            resp = await session.post(
-                "https://cognito-idp.us-east-1.amazonaws.com/",
-                json=data,
-                headers=headers,
-            )
-            if resp.status_code == 200:
-                break
-            await self._login(session)
-        else:
-            raise CSDAClientError("Authentication failure")
-
-        assert self._access_token, "Login failed"
-        auth = resp.json()["AuthenticationResult"]
-        self._access_token = auth["AccessToken"]
-
     async def get_token(self) -> str:
         session = self.current_session
         assert self._access_token, "Login failed"
@@ -123,90 +86,50 @@ class Client(object):
             await self._refresh(session)
         return self._access_token
 
-    async def search(
-        self,
-        query: CSDASearch,
-        *,
-        limit: Optional[int] = None,
-        parallel: int = 1,
-        page_size: int = 100,
-    ) -> AsyncIterator[CSDAItemCollection]:
+    async def search(self, *queries: CSDASearch) -> AsyncIterator[CSDAItemCollection]:
+        page_size = self.config.search_page_size
         session = self.current_session
         token: Optional[str] = None
         item_count = 0
-        while True:
-            page_size = min(page_size, limit - item_count) if limit is not None else page_size
-            query = query.copy(update={"token": token, "limit": page_size})
-
-            resp = await session.post("stac/search", content=query.json(exclude_none=True, by_alias=True))
-            if resp.status_code != 200:
-                raise ValueError(resp.content)
-            items = CSDAItemCollection.parse_raw(resp.content)
-            yield items
-            token = items.next_token
-            item_count += len(items.features)
-            if token is None or (limit is not None and item_count >= limit):
-                break
-
-    async def search_parallel(
-        self,
-        query: CSDASearch,
-        *,
-        limit: Optional[int] = None,
-        **kwargs,
-    ) -> AsyncIterator[CSDAItemCollection]:
-        async def run_search(query: CSDASearch):
-            async for item in self.search(query, **kwargs):
-                yield item
-
-        def iterate_partitions(query: CSDASearch):
-            for month_partition in query.split_by_datetime():
-                for product_partition in month_partition.split_by_product():
-                    yield product_partition
-
-        streamer = stream.flatmap(
-            stream.iterate(iterate_partitions(query)),
-            run_search,
-            task_limit=10,
-        )
-        item_count = 0
-        async with streamer.stream() as iterator:
-            async for item in iterator:
-                if limit is not None and item_count >= limit:
+        for query in queries:
+            while True:
+                query_json = query.copy(update={"token": token, "limit": page_size}).model_dump(
+                    mode="json",
+                    by_alias=True,
+                    exclude_none=True,
+                )
+                resp = await session.post("stac/search", json=query_json)
+                if resp.status_code != 200:
+                    raise ValueError(resp.content)
+                items = CSDAItemCollection.parse_raw(resp.content)
+                yield items
+                token = items.next_token
+                item_count += len(items.features)
+                if token is None:
                     break
-                yield item
-                item_count += 1
 
     async def download_links(
         self,
-        query: CSDASearch,
-        *,
-        limit: Optional[int] = None,
-        page_size: int = 100,
+        iterator: AsyncIterable[CSDAItemCollection],
+        /,
     ) -> AsyncIterator[DownloadLink]:
-        query = query.copy(update={"fields": {"include": {"assets"}}})
-        found: set[str] = set()
-
-        async def get_urls(items: CSDAItemCollection) -> AsyncIterator[DownloadLink]:
-            for item in items.features:
+        async for item_collection in iterator:
+            for item in item_collection.features:
                 for asset in item.assets.values():
                     try:
                         url = DownloadLink.parse_url(f"{self.base_url}{asset.href.lstrip('/')}")
                     except Exception:
                         logger.exception(f"Could not parse {asset.href}")
-                    if url.file not in found:
-                        found.add(url.file)
-                        yield url
+                    yield url
 
-        streamer = stream.flatmap(
-            self.search_parallel(query, page_size=page_size),
-            get_urls,
-            task_limit=1,
-        )
-
-        async with streamer.stream() as iterator:
-            async for url in buffered(iterator, 1000, limit):
-                yield url
+    async def download(
+        self,
+        links: AsyncIterable[Union[str, DownloadLink]],
+        prefix: str,
+        overwrite: bool = False,
+    ) -> AsyncIterator[bool]:
+        async for link in links:
+            yield await self.download_file(link, prefix=prefix, overwrite=overwrite, progress=self.config.download_progress)
 
     async def download_file(
         self,
@@ -251,34 +174,56 @@ class Client(object):
                             bar.update(len(chunk))
                             f.write(chunk)
         except BaseException:
+            # delete partial file on any exception
             destination.unlink(missing_ok=True)
             raise
         return True
 
-    async def download_query(
-        self,
-        query: CSDASearch,
-        *,
-        overwrite: bool = False,
-        prefix: str = "download/{product}/{datetime:%Y}/{datetime:%m}/{datetime:%d}",
-        parallel: int = 16,
-        limit: Optional[int] = None,
-        page_size: int = 100,
-        progress: bool = False,
-    ) -> AsyncIterator[DownloadLink]:
-        async def download_file(link: DownloadLink):
-            try:
-                return link, await self.download_file(link, prefix=prefix, overwrite=overwrite, progress=False)
-            except HTTPStatusError:
-                logger.exception(str(link))
-            return link, False
+    async def _login(self, session: AsyncClient) -> None:
+        config = Settings.current()
+        data = {
+            "AuthFlow": "USER_PASSWORD_AUTH",
+            "ClientId": config.cognito_client_id,
+            "AuthParameters": {
+                "PASSWORD": self.password.get_secret_value(),
+                "USERNAME": self.username,
+            },
+        }
+        headers = {
+            "Content-Type": "application/x-amz-json-1.1",
+            "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
+        }
+        resp = await session.post("https://cognito-idp.us-east-1.amazonaws.com/", json=data, headers=headers)
+        if resp.status_code != 200:
+            raise CSDAClientError("Authentication failure")
+        auth = resp.json()["AuthenticationResult"]
+        self._expiration = datetime.now() + timedelta(seconds=auth["ExpiresIn"]) - timedelta(minutes=5)
+        self._access_token = auth["AccessToken"]
+        self._refresh_token = auth["RefreshToken"]
 
-        streamer = stream.map(
-            self.download_links(query, limit=limit, page_size=page_size),
-            download_file,
-            task_limit=parallel,
+    async def _refresh(self, session: AsyncClient) -> None:
+        config = Settings.current()
+
+        # If the refresh token has expired, we try logging in again.
+        data = {
+            "AuthFlow": "REFRESH_TOKEN_AUTH",
+            "ClientId": config.cognito_client_id,
+            "AuthParameters": {
+                "REFRESH_TOKEN": self._refresh_token,
+            },
+        }
+        headers = {
+            "Content-Type": "application/x-amz-json-1.1",
+            "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
+        }
+        resp = await session.post(
+            "https://cognito-idp.us-east-1.amazonaws.com/",
+            json=data,
+            headers=headers,
         )
-        async with streamer.stream() as iterator:
-            async for link, success in iterator:
-                if success:
-                    yield link
+        if resp.status_code != 200:
+            await self._login(session)
+
+        assert self._access_token, "Login failed"
+        auth = resp.json()["AuthenticationResult"]
+        self._access_token = auth["AccessToken"]

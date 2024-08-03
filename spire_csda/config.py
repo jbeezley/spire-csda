@@ -25,12 +25,14 @@ class Settings(BaseSettings):
     api: HttpUrl = HttpUrl("https://nasa-csda.wx.spire.com/")
     cognito_client_id: str = "7agre1j1gooj2jng6mkddasp9o"
 
-    parallel_downloads: int = 12
-    item_buffer_size: int = 100
+    search_page_size: int = 100
+    concurrent_downloads: int = 12
+    item_buffer_size: int = 1000
     retry_count: int = 10
     max_retry_wait_seconds: int = 30
     concurrent_searches: int = 4
     use_http2: bool = True
+    download_progress: bool = False
 
     @contextmanager
     def context(self) -> Iterator[Settings]:
