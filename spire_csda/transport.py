@@ -10,7 +10,7 @@ class RetryableTransport(AsyncHTTPTransport):
     async def handle_async_request(self, request: Request) -> Response:
         path = request.url.path
         async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(10),
+            stop=stop_after_attempt(1),
             wait=wait_exponential_jitter(max=60),
             reraise=True,
         ):
