@@ -3,12 +3,14 @@ from contextlib import AbstractAsyncContextManager
 from typing import Any, AsyncIterable, AsyncIterator, Generic, Optional, TypeVar
 
 from aiostream.core import pipable_operator, PipableOperator, streamcontext
+from typing_extensions import ParamSpec
 
 A = TypeVar("A", contravariant=True)
+P = ParamSpec("P")
 T = TypeVar("T", covariant=True)
 
 
-class Buffer(AbstractAsyncContextManager, Generic[A, T]):
+class Buffer(AbstractAsyncContextManager, Generic[A, P, T]):
     """Create a buffering context manager..
 
     >>> async with Buffer() as buffered:
@@ -34,10 +36,10 @@ class Buffer(AbstractAsyncContextManager, Generic[A, T]):
             else:
                 await queue.put((None, None))
 
-    async def __aenter__(self) -> PipableOperator[A, [], T]:
+    async def __aenter__(self) -> PipableOperator[A, P, T]:
 
         @pipable_operator
-        async def buffered(it: AsyncIterable[A]) -> AsyncIterator[T]:
+        async def buffered(it: AsyncIterable[A], *args: P.args, **kwargs: P.kwargs) -> AsyncIterator[T]:
             """Buffer values from an iterator in the background.
 
             This function creates an asynchronous task that pushes data into a

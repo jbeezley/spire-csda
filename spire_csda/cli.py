@@ -161,7 +161,7 @@ async def query(
     async def identity(x: T) -> T:
         return x
 
-    async with client.session(), Buffer[CSDAItemCollection, CSDASearch](client.config.item_buffer_size) as buffered:
+    async with client.session(), Buffer[CSDAItemCollection, [], CSDASearch](client.config.item_buffer_size) as buffered:
         p = stream.iterate(query.split()) | search.pipe(client, task_limit=client.config.concurrent_searches) | buffered.pipe()
         if mode != "raw":
             p |= extract_links.pipe(client=client)  # type: ignore
