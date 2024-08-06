@@ -1,20 +1,63 @@
 from datetime import datetime
-from typing import Optional, TypeVar
+from typing import AsyncIterator, TextIO, Optional, TypeVar
 
 from aiostream import pipe, stream
 import asyncclick as click
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 from tqdm.asyncio import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 from spire_csda.buffer import Buffer
 from spire_csda.client import Client
 from spire_csda.config import Settings
+from spire_csda.models.bulk_download import BulkDownload
 from spire_csda.models.item_collection import CSDAItemCollection
 from spire_csda.models.search import CSDASearch
 from spire_csda.streaming import download, extract_links, search
 
 T = TypeVar("T")
+
+
+async def _run_search(
+    client: Client,
+    *queries: CSDASearch,
+    mode: str,
+    limit: Optional[int],
+    destination: str,
+    progress: bool,
+) -> None:
+    async def identity(x: T) -> T:
+        return x
+
+    async def split_queries(*qs: CSDASearch) -> AsyncIterator[CSDASearch]:
+        for q in qs:
+            for s in q.split():
+                yield s
+
+    async with client.session(), Buffer[CSDAItemCollection, [], CSDASearch](client.config.item_buffer_size) as buffered:
+        p = (
+            stream.iterate(queries)
+            | pipe.flatmap(split_queries)
+            | search.pipe(client, task_limit=client.config.concurrent_searches)
+            | buffered.pipe()
+        )
+        if mode != "raw":
+            p |= extract_links.pipe(client=client)  # type: ignore
+
+        if mode == "download":
+            p = p | download.pipe(client=client, prefix=destination, task_limit=10) | pipe.filter(identity)  # type: ignore
+
+        if limit is not None:
+            p = p | pipe.take(limit)
+
+        with tqdm(unit=" files", disable=not progress) as pbar, logging_redirect_tqdm():
+            async with p.stream() as streamer:
+                async for item in streamer:
+                    pbar.update(1)
+                    if mode == "raw":
+                        click.echo(item.model_dump_json())
+                    elif mode == "list":
+                        click.echo(item)
 
 
 @click.group()
@@ -98,7 +141,7 @@ async def query(
     overwrite: bool,
 ):
     """
-    Query data from the CSDA STAC catalog.
+    Query data from Spire's CSDA catalog.
 
     This command can return data in three modes:
 
@@ -120,7 +163,8 @@ async def query(
 
     In addition, it supports standard python format strings, so you can extract
     components of the datetime as path elements such as `{datetime:%Y-%m-%d}`
-    to make a subdirectory for each day.
+    to make a subdirectory for each day.  The path string is automatically
+    converted to backslashes when running in Windows.
 
     The default destination is `csda/{product}/{datetime:%Y}/{datetime:%m}/{datetime:%d}`.
     """
@@ -158,25 +202,68 @@ async def query(
         products,
     )
 
-    async def identity(x: T) -> T:
-        return x
+    await _run_search(client, query, mode=mode, limit=limit, destination=destination, progress=progress)
 
-    async with client.session(), Buffer[CSDAItemCollection, [], CSDASearch](client.config.item_buffer_size) as buffered:
-        p = stream.iterate(query.split()) | search.pipe(client, task_limit=client.config.concurrent_searches) | buffered.pipe()
-        if mode != "raw":
-            p |= extract_links.pipe(client=client)  # type: ignore
 
-        if mode == "download":
-            p = p | download.pipe(client=client, prefix=destination, task_limit=10) | pipe.filter(identity)  # type: ignore
+@cli.command()
+@click.option("--limit", type=click.IntRange(min=1), help="Stop after downloading this many files")
+@click.option(
+    "--progress/--no-progress",
+    default=True,
+    help="Enable progress reporting while downloading",
+)
+@click.option(
+    "--destination",
+    default="csda/{product}/{datetime:%Y}/{datetime:%m}/{datetime:%d}",
+    help="Configure download location",
+)
+@click.option(
+    "--overwrite/--no-overwrite",
+    default=True,
+    help="Overwrite existing files when downloading",
+)
+@click.argument("config", type=click.File("r"), nargs=-1)
+@click.pass_context
+async def bulk_download(
+    ctx,
+    limit: Optional[int],
+    progress: bool,
+    destination: str,
+    overwrite: bool,
+    config: list[TextIO],
+):
+    """
+    Bulk download files the Spire's CSDA catalog.
 
-        if limit is not None:
-            p = p | pipe.take(limit)
+    You can configure the path where the file is placed with a format-style
+    string as the `destination` parameter. This parameter allows you to provide
+    any static path as well as sort the downloads into prefixes based on
+    properties of the file.  These properties include:
 
-        with tqdm(unit=" files", disable=not progress) as pbar, logging_redirect_tqdm():
-            async with p.stream() as streamer:
-                async for item in streamer:
-                    pbar.update(1)
-                    if mode == "raw":
-                        click.echo(item.model_dump_json())
-                    elif mode == "list":
-                        click.echo(item)
+    \b
+    * collection
+    * datetime
+    * receiver
+    * product
+
+    In addition, it supports standard python format strings, so you can extract
+    components of the datetime as path elements such as `{datetime:%Y-%m-%d}`
+    to make a subdirectory for each day.  The path string is automatically
+    converted to backslashes when running in Windows.
+
+    The default destination is `csda/{product}/{datetime:%Y}/{datetime:%m}/{datetime:%d}`.
+    """
+    client: Client = ctx.obj["client"]
+    for file in config:
+        try:
+            queries = BulkDownload.model_validate_json(file.read()).queries
+        except ValidationError as err:
+            click.secho(str(err), err=True, fg="red")
+            raise click.BadParameter(
+                "could not parse file",
+                ctx,
+                None,
+                "config",
+            )
+
+    await _run_search(client, *queries, mode="download", limit=limit, destination=destination, progress=progress)
