@@ -30,6 +30,9 @@ types-pytz = "^2024.1.0.20240417"
 types-python-dateutil = "^2.9.0.20240316"
 pre-commit = "^3.8.0"
 pytest = "^8.3.2"
+pytest-httpx = "^0.30.0"
+polyfactory = "^2.16.2"
+pytest-asyncio = "^0.23.8"
 
 [tool.poetry-dynamic-versioning]
 enable = true
@@ -93,3 +96,8 @@ warn_redundant_casts = true
 warn_unreachable = true
 warn_unused_configs = true
 warn_unused_ignores = true
+
+exclude = ["tests/*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

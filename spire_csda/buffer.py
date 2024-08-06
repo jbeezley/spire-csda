@@ -44,7 +44,6 @@ class Buffer(AbstractAsyncContextManager, Generic[A, T]):
             bounded queue.
             """
             self.task = create_task(self._producer(it, self.queue))
-            count = 0
             try:
                 while True:
                     status, item = await self.queue.get()
@@ -53,7 +52,6 @@ class Buffer(AbstractAsyncContextManager, Generic[A, T]):
                     if status is None:
                         break
                     yield item
-                    count += 1
             except CancelledError:
                 pass
 

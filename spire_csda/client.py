@@ -93,7 +93,7 @@ class Client(object):
         item_count = 0
         for query in queries:
             while True:
-                query_json = query.copy(update={"token": token, "limit": page_size}).model_dump(
+                query_json = query.model_copy(update={"token": token, "limit": page_size}).model_dump(
                     mode="json",
                     by_alias=True,
                     exclude_none=True,
@@ -101,7 +101,7 @@ class Client(object):
                 resp = await session.post("stac/search", json=query_json)
                 if resp.status_code != 200:
                     raise ValueError(resp.content)
-                items = CSDAItemCollection.parse_raw(resp.content)
+                items = CSDAItemCollection.model_validate_json(resp.content)
                 yield items
                 token = items.next_token
                 item_count += len(items.features)

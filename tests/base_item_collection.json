@@ -1,0 +1,140 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "bbox": [
+        15.340142835352072,
+        -82.28971707695501,
+        -65.6395852873319,
+        10.879832777560244
+      ],
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            15.340142835352072,
+            10.879832777560244
+          ],
+          [
+            10.89889810392325,
+            -11.851979183428819
+          ],
+          [
+            8.537600274258827,
+            -23.237177308427913
+          ]
+        ]
+      },
+      "properties": {
+        "datetime": "2024-07-06T09:56:19Z",
+        "snr_l1": 1854.3,
+        "snr_l2": 1515.71,
+        "badness": 34.567,
+        "item_type": "navigation",
+        "collection": "spire",
+        "minimum_altitude": 1.4190042,
+        "ro:leo_satellite/id": "FM154",
+        "ro:occulting_satellite/id": "E13",
+        "ro:leo_satellite/constellation": "Spire",
+        "ro:occulting_satellite/constellation": "Galileo"
+      },
+      "id": "2024-07-06T09-56-19_FM154_E13_navigation",
+      "stac_version": "1.0.0",
+      "assets": {
+        "spire_att_L1A_leoAtt_v06.01_2024-07-06T08-57-00_FM154.log": {
+          "href": "/download/spire/2024-07-06T09-56-19_FM154_E13_navigation/spire_att_L1A_leoAtt_v06.01_2024-07-06T08-57-00_FM154.log",
+          "type": "ASCII",
+          "title": "spire_att_L1A_leoAtt_v06.01_2024-07-06T08-57-00_FM154.log",
+          "size": 711760,
+          "md5_digest": "b812cd19806f41a0af9b333466016ed6",
+          "annotations": {
+            "spire/s3_key": "data_mart/att/L1A/leoAtt/latest/2024/07/06/spire_att_L1A_leoAtt_v06.01_2024-07-06T08-57-00_FM154.log",
+            "spire/manifest": "manifest/gnss-ro/2024/07/06/spire_gnss-ro_2024-07-06T09-56-19_FM154_E13.json",
+            "spire/product_type": "leoAtt",
+            "spire/manifest_hash": "60252bc4355964d36e5891e71093cc88",
+            "spire/product_level": "L1A",
+            "spire/product_version": "v06.01"
+          }
+        },
+        "spire_nav_L1A_podObs_v06.01_2024-07-06T09-46-49_FM154.sp3": {
+          "href": "/download/spire/2024-07-06T09-56-19_FM154_E13_navigation/spire_nav_L1A_podObs_v06.01_2024-07-06T09-46-49_FM154.sp3",
+          "type": "SP3",
+          "title": "spire_nav_L1A_podObs_v06.01_2024-07-06T09-46-49_FM154.sp3",
+          "size": 234194,
+          "md5_digest": "b85e1a72433b966e49f6e56fb1ddd71d",
+          "annotations": {
+            "spire/s3_key": "data_mart/nav/L1A/podObs/latest/2024/07/06/spire_nav_L1A_podObs_v06.01_2024-07-06T09-46-49_FM154.sp3",
+            "spire/manifest": "manifest/gnss-ro/2024/07/06/spire_gnss-ro_2024-07-06T09-56-19_FM154_E13.json",
+           "spire/product_type": "podObs",
+            "spire/manifest_hash": "60252bc4355964d36e5891e71093cc88",
+            "spire/product_level": "L1A",
+            "spire/product_version": "v06.01"
+          }
+        }
+      },
+      "links": [
+        {
+          "href": "https://nasa-csda.wx.spire.com/stac/collections/spire",
+          "rel": "collection",
+          "type": "application/json"
+        },
+        {
+          "href": "https://nasa-csda.wx.spire.com/stac/collections/spire",
+          "rel": "parent",
+          "type": "application/json"
+        },
+        {
+          "href": "https://nasa-csda.wx.spire.com/stac/",
+          "rel": "root",
+          "type": "application/json"
+        },
+        {
+          "href": "https://nasa-csda.wx.spire.com/stac/collections/spire/items/2024-07-06T09-56-19_FM154_E13_navigation",
+          "rel": "self",
+          "type": "application/geo+json"
+        }
+      ],
+      "collection": "spire"
+    }
+  ],
+  "links": [
+    {
+      "href": "https://nasa-csda.wx.spire.com/stac/search",
+      "rel": "next",
+      "type": "application/geo+json",
+      "method": "POST",
+      "body": {
+        "bbox": [
+          -180.0,
+          -90.0,
+          180.0,
+          90.0
+        ],
+        "datetime": "2024-01-01T00:00:00+00:00/2024-07-06T09:56:20.566036+00:00",
+        "limit": 100,
+        "filter": {
+          "op": "=",
+          "args": [
+            {
+              "property": "item_type"
+            },
+            "navigation"
+          ]
+        },
+        "filter-lang": "cql2-json",
+        "token": "next:spire:2024-07-06T09-42-19_FM194_R04_navigation"
+      }
+    },
+    {
+      "href": "https://nasa-csda.wx.spire.com/stac/",
+      "rel": "root",
+      "type": "application/json"
+    },
+    {
+      "href": "https://nasa-csda.wx.spire.com/stac/search",
+      "rel": "self",
+      "type": "application/json"
+    }
+  ]
+}
