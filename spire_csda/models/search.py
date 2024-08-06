@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime as datetime_, timedelta, timezone
 from enum import Enum
 from typing import Any, Iterator, Literal, Optional, Union
 
@@ -41,7 +41,7 @@ class IntervalQuery(BaseModel):
 
 
 class DatetimeQuery(BaseModel):
-    timestamp: datetime
+    timestamp: datetime_
 
 
 class CoordinatesQuery(BaseModel):
@@ -67,7 +67,7 @@ class FilterExpression(BaseModel):
             float,
             str,
             list,
-            datetime,
+            datetime_,
         ]
     ]
 
@@ -78,9 +78,9 @@ class CSDASearch(ExtendedSearch):
     filter_lang: Literal["cql2-json"] = Field("cql2-json", alias="filter-lang")
 
     @property
-    def start_end(self) -> tuple[datetime, datetime]:
-        start = datetime(2019, 10, 1) if self.start_date is None else self.start_date
-        end = datetime.now() if self.end_date is None else self.end_date
+    def start_end(self) -> tuple[datetime_, datetime_]:
+        start = datetime_(2019, 10, 1) if self.start_date is None else self.start_date
+        end = datetime_.now() if self.end_date is None else self.end_date
         start = start.replace(tzinfo=timezone.utc) if start.tzinfo is None else start
         end = end.replace(tzinfo=timezone.utc) if end.tzinfo is None else end
         return start, end
@@ -109,8 +109,8 @@ class CSDASearch(ExtendedSearch):
     @classmethod
     def build_query(
         cls,
-        start_date: datetime,
-        end_date: datetime,
+        start_date: datetime_,
+        end_date: datetime_,
         min_latitude: float,
         max_latitude: float,
         min_longitude: float,
@@ -132,7 +132,7 @@ class CSDASearch(ExtendedSearch):
                 ],
             }
 
-        datetime_ = f"{start_date.isoformat()}/{end_date.isoformat()}"
+        datetime = f"{start_date.isoformat()}/{end_date.isoformat()}"
         return CSDASearch(
             bbox=[
                 min_longitude,
@@ -140,6 +140,6 @@ class CSDASearch(ExtendedSearch):
                 max_longitude,
                 max_latitude,
             ],
-            datetime=datetime_,
+            datetime=datetime,
             filter=field_filter,
         )

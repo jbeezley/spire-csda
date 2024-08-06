@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class RetryableTransport(AsyncHTTPTransport):
+
     async def handle_async_request(self, request: Request) -> Response:
         path = request.url.path
         async for attempt in AsyncRetrying(
@@ -21,3 +22,4 @@ class RetryableTransport(AsyncHTTPTransport):
                     logger.debug(msg)
                     raise Exception(await resp.aread())
                 return resp
+        assert False
