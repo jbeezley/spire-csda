@@ -45,12 +45,12 @@ async def download(
     client: Client,
     prefix: str,
     task_limit: Optional[int] = None,
-) -> AsyncIterator[bool]:
+) -> AsyncIterator[Optional[str]]:
     """Download links concurrently."""
 
     async def _download(
         *links: DownloadLink,
-    ) -> AsyncIterable[bool]:
+    ) -> AsyncIterable[Optional[str]]:
         for link in links:
             yield await client.download_file(url=link, prefix=prefix)
 

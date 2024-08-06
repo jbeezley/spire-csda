@@ -44,3 +44,17 @@ async def test_download(httpx_csda_client, config, search):
         for file in files:
             with file.open("rb") as f:
                 assert f.read() == b"chunk" * 5
+
+
+async def test_destination(httpx_csda_client, config, search):
+    with TemporaryDirectory() as dir:
+        client = Client(config)
+        async with client.session():
+            file_count = 0
+            async for pth in client.download(
+                client.download_links(client.search(search.build())),
+                prefix=f"{dir}" + "/{product}/{datetime:%Y}",
+            ):
+                assert ("navigation", "2024") == Path(pth).parts[-3:-1]
+                file_count += 1
+        assert file_count == 4

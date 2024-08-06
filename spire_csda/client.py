@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from datetime import datetime, timedelta
 import logging
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import AsyncIterable, AsyncIterator, Optional, Union
 
 from httpx import AsyncClient, HTTPStatusError, Request
@@ -127,7 +127,8 @@ class Client(object):
         links: AsyncIterable[Union[str, DownloadLink]],
         prefix: str,
         overwrite: bool = False,
-    ) -> AsyncIterator[bool]:
+    ) -> AsyncIterator[Optional[str]]:
+
         async for link in links:
             yield await self.download_file(link, prefix=prefix, overwrite=overwrite, progress=self.config.download_progress)
 
@@ -138,21 +139,21 @@ class Client(object):
         *,
         overwrite: bool = False,
         progress: bool = False,
-    ) -> bool:
+    ) -> Optional[str]:
         session = self.current_session
         if not isinstance(url, DownloadLink):
             url = DownloadLink.parse_url(url)
-        prefix_path = Path(prefix.format_map(url.model_dump()))
+        prefix_path = Path(PurePosixPath(prefix.format_map(url.model_dump())))
         destination = prefix_path / str(url).split("/")[-1]
         if destination.exists() and not overwrite:
-            return True
+            return str(destination)
         prefix_path.mkdir(parents=True, exist_ok=True)
         try:
             with destination.open(mode="wb") as f:
                 async with session.stream("GET", str(url), follow_redirects=True) as resp:
                     if resp.status_code == 404:
                         logger.warning(f"Missing file at {url}")
-                        return False
+                        return None
                     try:
                         resp.raise_for_status()
                     except HTTPStatusError:
@@ -177,7 +178,7 @@ class Client(object):
             # delete partial file on any exception
             destination.unlink(missing_ok=True)
             raise
-        return True
+        return str(destination)
 
     async def _login(self, session: AsyncClient) -> None:
         config = Settings.current()
