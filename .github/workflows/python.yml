@@ -55,11 +55,21 @@ jobs:
           python-version: "3.12"
       - name: Install poetry
         uses: abatilo/actions-poetry@v2
+      - name: Setup a local virtual environment (if no poetry.toml file)
+        run: |
+          poetry config virtualenvs.create true --local
+          poetry config virtualenvs.in-project true --local
       - name: Install poetry plugins
         run: poetry self add 'poetry-dynamic-versioning[plugin]' 
+      - uses: actions/cache@v3
+        name: Define a cache for the virtual environment
+        with:
+          path: ./.venv
+          key: venv-${{ hashFiles('poetry.lock') }}
       - name: Build package
         run: poetry build
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+          verbose: true
