@@ -44,8 +44,8 @@ command.
 
 ```bash
 spire-csda query --start-date 2020-01-01 --end-date 2020-01-02 \
-	--products opnGns,atmPhs \
-	--min-latitude -50 --max-latitude 50 --min-longitude -50 --max-longitude 50
+    --products opnGns,atmPhs \
+    --min-latitude -50 --max-latitude 50 --min-longitude -50 --max-longitude 50
 ```
 
 By default, this will download all matching files in the same way that the bulk
@@ -57,8 +57,8 @@ In `list` mode, a link to all files will be printed to STDOUT.
 
 ```bash
 spire-csda query --start-date 2020-01-01 --end-date 2020-01-02 \
-	--products opnGns,atmPhs \
-	--min-latitude -50 --max-latitude 50 --min-longitude -100 --max-longitude 100 \
+    --products opnGns,atmPhs \
+    --min-latitude -50 --max-latitude 50 --min-longitude -100 --max-longitude 100 \
     --mode list --no-progress --limit 10
 ```
 ```
@@ -80,8 +80,8 @@ In `raw` mode, the command will stream out GeoJSON objects conforming to the STA
 
 ```bash
 spire-csda query --start-date 2020-01-01 --end-date 2020-01-02 \
-	--products opnGns,atmPhs \
-	--min-latitude -50 --max-latitude 50 --min-longitude -100 --max-longitude 100 \
+    --products opnGns,atmPhs \
+    --min-latitude -50 --max-latitude 50 --min-longitude -100 --max-longitude 100 \
     --mode raw --no-progress --limit 1
 ```
 
