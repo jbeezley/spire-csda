@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime as datetime_, timedelta, timezone
+from datetime import datetime as datetime_, timezone
 from enum import Enum
 from typing import Any, Iterator, Literal, Optional, Union
 
@@ -120,7 +120,7 @@ class CSDASearch(ExtendedSearch):
         if start_date.tzinfo is None:
             start_date = start_date.replace(tzinfo=timezone.utc)
         if end_date.tzinfo is None:
-            end_date = end_date.replace(tzinfo=timezone.utc) - timedelta(days=30)
+            end_date = end_date.replace(tzinfo=timezone.utc)
 
         field_filter = None
         if products:

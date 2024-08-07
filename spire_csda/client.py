@@ -59,7 +59,7 @@ class Client(object):
     @asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncClient]:
         config = Settings.current()
-        transport = RetryableTransport(http2=config.use_http2)
+        transport = RetryableTransport(config)
 
         async def set_auth(request: Request):
             if str(self.base_url) in str(request.url):
