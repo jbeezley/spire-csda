@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from spire_csda.models.search import CSDASearch
+from nasa_csda.models.search import CSDASearch
 
 
 class BulkDownload(BaseModel):

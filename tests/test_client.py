@@ -1,7 +1,7 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from spire_csda.client import Client
+from nasa_csda.client import Client
 
 
 async def test_authenticate(httpx_csda, config):

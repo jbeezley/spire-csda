@@ -1,4 +1,4 @@
-# spire-csda
+# nasa-csda-cli
 
 This is a CLI and SDK for querying and downloading files from Spire's
 [CSDA catalog](https://nasa-csda.wx.spire.com/).
@@ -6,7 +6,7 @@ This is a CLI and SDK for querying and downloading files from Spire's
 ## Install it from PyPI
 
 ```bash
-pip install spire-csda
+pip install nasa-csda
 ```
 
 ## Using the CLI
@@ -14,7 +14,7 @@ pip install spire-csda
 See the command's help dialog for detailed usage information for all commands.
 
 ```bash
-spire-csda --help
+nasa-csda-cli --help
 ```
 
 All of the commands require login information (the same username and password
@@ -34,7 +34,7 @@ the CLI to download all files matching the query created in the UI. To
 download all files using this configuration file,
 
 ```bash
-spire-csda --username <username> --password <password> bulk-download download-config.json
+nasa-csda-cli --username <username> --password <password> bulk-download download-config.json
 ```
 
 ### Querying the catalog
@@ -43,7 +43,7 @@ You can also construct queries to perform custom tasks using the `query`
 command.
 
 ```bash
-spire-csda query --start-date 2020-01-01 --end-date 2020-01-02 \
+nasa-csda-cli query --start-date 2020-01-01 --end-date 2020-01-02 \
     --products opnGns,atmPhs \
     --min-latitude -50 --max-latitude 50 --min-longitude -50 --max-longitude 50
 ```
@@ -56,7 +56,7 @@ download does. There are two additional modes of operation this command supports
 In `list` mode, a link to all files will be printed to STDOUT.
 
 ```bash
-spire-csda query --start-date 2020-01-01 --end-date 2020-01-02 \
+nasa-csda-cli query --start-date 2020-01-01 --end-date 2020-01-02 \
     --products opnGns,atmPhs \
     --min-latitude -50 --max-latitude 50 --min-longitude -100 --max-longitude 100 \
     --mode list --no-progress --limit 10
@@ -79,7 +79,7 @@ https://nasa-csda.wx.spire.com/download/spire/2020-01-01T23-51-32_FM104_G25_atmP
 In `raw` mode, the command will stream out GeoJSON objects conforming to the STAC spec.
 
 ```bash
-spire-csda query --start-date 2020-01-01 --end-date 2020-01-02 \
+nasa-csda-cli query --start-date 2020-01-01 --end-date 2020-01-02 \
     --products opnGns,atmPhs \
     --min-latitude -50 --max-latitude 50 --min-longitude -100 --max-longitude 100 \
     --mode raw --no-progress --limit 1
@@ -91,8 +91,8 @@ Advanced users can use the `token` command to generate authentication headers th
 downloading files using other tools.
 
 ```bash
-TOKEN="$(spire-csda token)"
-curl -O -L -H "Authentication: Bearer ${TOKEN}" https://nasa-csda.wx.spire.com/download/spire/2020-01-01T23-56-00_FM104_R15_atmPhs/spire_gnss-ro_L1B_atmPhs_v06.01_2020-01-01T23-56-00_FM104_R15.nc -o 
+TOKEN="$(nasa-csda-cli token)"
+curl -O -L -H "Authentication: Bearer ${TOKEN}" https://nasa-csda.wx.spire.com/download/spire/2020-01-01T23-56-00_FM104_R15_atmPhs/spire_gnss-ro_L1B_atmPhs_v06.01_2020-01-01T23-56-00_FM104_R15.nc
 ```
 
 ## Using the SDK

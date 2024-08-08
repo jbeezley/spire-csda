@@ -7,13 +7,13 @@ from pydantic import SecretStr, ValidationError
 from tqdm.asyncio import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from spire_csda.buffer import Buffer
-from spire_csda.client import Client
-from spire_csda.config import Settings
-from spire_csda.models.bulk_download import BulkDownload
-from spire_csda.models.item_collection import CSDAItemCollection
-from spire_csda.models.search import CSDASearch
-from spire_csda.streaming import download, extract_links, search
+from nasa_csda.buffer import Buffer
+from nasa_csda.client import Client
+from nasa_csda.config import Settings
+from nasa_csda.models.bulk_download import BulkDownload
+from nasa_csda.models.item_collection import CSDAItemCollection
+from nasa_csda.models.search import CSDASearch
+from nasa_csda.streaming import download, extract_links, search
 
 T = TypeVar("T")
 

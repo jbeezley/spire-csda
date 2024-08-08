@@ -4,10 +4,10 @@ from typing import AsyncIterable, AsyncIterator, Optional
 from aiostream.core import pipable_operator, streamcontext
 from aiostream.stream import advanced
 
-from spire_csda.client import Client
-from spire_csda.models.link import DownloadLink
-from spire_csda.models.item_collection import CSDAItemCollection
-from spire_csda.models.search import CSDASearch
+from nasa_csda.client import Client
+from nasa_csda.models.link import DownloadLink
+from nasa_csda.models.item_collection import CSDAItemCollection
+from nasa_csda.models.search import CSDASearch
 
 logger = logging.getLogger(__name__)
 

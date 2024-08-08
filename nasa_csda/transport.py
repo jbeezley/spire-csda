@@ -3,7 +3,7 @@ import logging
 from httpx import AsyncHTTPTransport, Request, Response
 from tenacity import AsyncRetrying, stop_after_attempt, wait_exponential_jitter
 
-from spire_csda.config import Settings
+from nasa_csda.config import Settings
 
 logger = logging.getLogger(__name__)
 

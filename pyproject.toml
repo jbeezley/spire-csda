@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "spire-csda"
+name = "nasa-csda"
 version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
@@ -28,7 +28,7 @@ pydantic-settings = "^2.4.0"
 platformdirs = "^4.2.2"
 
 [tool.poetry.scripts]
-spire-csda = "spire_csda.cli:cli"
+nasa-csda-cli = "nasa_csda.cli:cli"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"

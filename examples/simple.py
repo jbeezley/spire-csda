@@ -2,9 +2,9 @@
 
 from asyncio import run
 
-from spire_csda.client import Client
-from spire_csda.config import Settings
-from spire_csda.models.search import CSDASearch
+from nasa_csda.client import Client
+from nasa_csda.config import Settings
+from nasa_csda.models.search import CSDASearch
 
 
 async def download_first_file(query: CSDASearch):

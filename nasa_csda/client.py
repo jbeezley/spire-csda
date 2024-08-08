@@ -10,11 +10,11 @@ from typing import AsyncIterable, AsyncIterator, Optional, Union
 from httpx import AsyncClient, HTTPStatusError, Request
 from tqdm.asyncio import tqdm
 
-from spire_csda.config import Settings
-from spire_csda.models.link import DownloadLink
-from spire_csda.models.item_collection import CSDAItemCollection
-from spire_csda.models.search import CSDASearch
-from spire_csda.transport import RetryableTransport
+from nasa_csda.config import Settings
+from nasa_csda.models.link import DownloadLink
+from nasa_csda.models.item_collection import CSDAItemCollection
+from nasa_csda.models.search import CSDASearch
+from nasa_csda.transport import RetryableTransport
 
 logger = logging.getLogger(__name__)
 _session: ContextVar[AsyncClient] = ContextVar("session")

@@ -3,8 +3,8 @@ from tempfile import TemporaryDirectory
 
 from aiostream.stream import iterate
 
-from spire_csda.client import Client
-from spire_csda.streaming import download, extract_links, search as search_
+from nasa_csda.client import Client
+from nasa_csda.streaming import download, extract_links, search as search_
 
 
 async def test_search(httpx_csda_client, config, search):

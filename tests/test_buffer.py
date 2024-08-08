@@ -3,7 +3,7 @@ from aiostream.stream import range as arange
 from aiostream.pipe import take
 import pytest
 
-from spire_csda.buffer import Buffer
+from nasa_csda.buffer import Buffer
 
 
 async def test_buffer_end():
