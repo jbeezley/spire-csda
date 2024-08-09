@@ -70,6 +70,3 @@ jobs:
         run: poetry build
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          verbose: true
