@@ -1,5 +1,6 @@
 from asyncio import CancelledError, create_task, Queue, Task
 from contextlib import AbstractAsyncContextManager
+import logging
 from typing import Any, AsyncIterable, AsyncIterator, Generic, Optional, TypeVar
 
 from aiostream.core import pipable_operator, PipableOperator, streamcontext
@@ -8,6 +9,8 @@ from typing_extensions import ParamSpec
 A = TypeVar("A", contravariant=True)
 P = ParamSpec("P")
 T = TypeVar("T", covariant=True)
+
+logger = logging.getLogger(__name__)
 
 
 class Buffer(AbstractAsyncContextManager, Generic[A, P, T]):

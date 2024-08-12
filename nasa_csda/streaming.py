@@ -1,8 +1,10 @@
+from collections.abc import MutableMapping
 import logging
 from typing import AsyncIterable, AsyncIterator, Optional
 
 from aiostream.core import pipable_operator, streamcontext
 from aiostream.stream import advanced
+from cachetools import LRUCache
 
 from nasa_csda.client import Client
 from nasa_csda.models.link import DownloadLink
@@ -27,7 +29,8 @@ async def search(
 async def extract_links(item_collection: AsyncIterable[CSDAItemCollection], client: Client) -> AsyncIterator[DownloadLink]:
     """Extract links from STAC features."""
     base_url = client.base_url
-    found: set[str] = set()
+
+    found: MutableMapping[str, bool] = LRUCache(maxsize=client.config.max_deduplication_cache)
     async with streamcontext(item_collection) as streamer:
         async for feature in streamer:
             for item in feature.features:
@@ -35,7 +38,7 @@ async def extract_links(item_collection: AsyncIterable[CSDAItemCollection], clie
                     file = asset.href.split("/")[-1]
                     if file in found:
                         continue
-                    found.add(file)
+                    found[file] = True
                     yield DownloadLink.parse_url(f"{base_url}{asset.href.lstrip('/')}")
 
 

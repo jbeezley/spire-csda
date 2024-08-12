@@ -26,6 +26,7 @@ aiostream = "^0.6.2"
 python-dateutil = "^2.9.0.post0"
 pydantic-settings = "^2.4.0"
 platformdirs = "^4.2.2"
+cachetools = "^5.4.0"
 
 [tool.poetry.scripts]
 nasa-csda-cli = "nasa_csda.cli:cli"
@@ -41,6 +42,7 @@ pytest = "^8.3.2"
 pytest-httpx = "^0.30.0"
 polyfactory = "^2.16.2"
 pytest-asyncio = "^0.23.8"
+types-cachetools = "^5.4.0.20240717"
 
 [tool.poetry-dynamic-versioning]
 enable = true

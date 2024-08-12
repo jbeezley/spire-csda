@@ -27,12 +27,13 @@ class Settings(BaseSettings):
 
     search_page_size: int = 100
     concurrent_downloads: int = 12
-    item_buffer_size: int = 1000
+    item_buffer_size: int = 10
     retry_count: int = 10
     max_retry_wait_seconds: int = 30
     concurrent_searches: int = 4
     use_http2: bool = True
     download_progress: bool = False
+    max_deduplication_cache: int = 1000
 
     @contextmanager
     def context(self) -> Iterator[Settings]:
