@@ -66,7 +66,19 @@ async def _run_search(
 @click.option("--settings-file", envvar="CSDA_SETTINGS_FILE", default=".env")
 @click.pass_context
 def cli(ctx, username, password, settings_file):
-    config = Settings(_env_file=settings_file)
+    kwargs = {}
+    if username:
+        kwargs["username"] = username
+    if password:
+        kwargs["password"] = password
+    config = Settings(_env_file=settings_file, **kwargs)
+    if not config.username or not config.password.get_secret_value():
+        raise click.BadParameter(
+            "username and password must be provided",
+            ctx,
+            None,
+            "username, password",
+        )
     if username is not None:
         config = config.model_copy(update={"username": username})
     if password is not None:

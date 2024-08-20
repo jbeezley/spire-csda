@@ -17,8 +17,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    username: str
-    password: SecretStr
+    username: str = ""
+    password: SecretStr = SecretStr("")
     api: HttpUrl = HttpUrl("https://nasa-csda.wx.spire.com/")
     cognito_client_id: str = "7agre1j1gooj2jng6mkddasp9o"
 
