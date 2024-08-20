@@ -61,8 +61,8 @@ async def _run_search(
 
 
 @click.group()
-@click.option("--username", envvar="CSDA_USERNAME", required=False)
-@click.option("--password", envvar="CSDA_PASSWORD", required=False)
+@click.option("--username", envvar="CSDA_USERNAME")
+@click.option("--password", envvar="CSDA_PASSWORD")
 @click.option("--settings-file", envvar="CSDA_SETTINGS_FILE", default=".env")
 @click.pass_context
 def cli(ctx, username, password, settings_file):

@@ -28,9 +28,6 @@ class CSDAClientError(Exception):
 class Client(object):
     def __init__(self, config: Settings) -> None:
         self.config = config
-        self.username = self.config.username
-        self.password = self.config.password
-        self.base_url = self.config.api
         self._access_token: Optional[str] = None
         self._refresh_token: Optional[str] = None
         self._expiration: Optional[datetime] = None
@@ -62,12 +59,12 @@ class Client(object):
         transport = RetryableTransport(config)
 
         async def set_auth(request: Request):
-            if str(self.base_url) in str(request.url):
+            if str(self.config.api) in str(request.url):
                 request.headers.setdefault("Authentication", f"Bearer {await self.get_token()}")
 
         async with AsyncClient(
             transport=transport,
-            base_url=str(self.base_url),
+            base_url=str(self.config.api),
             timeout=None,
             event_hooks={
                 "request": [set_auth],
@@ -117,7 +114,7 @@ class Client(object):
             for item in item_collection.features:
                 for asset in item.assets.values():
                     try:
-                        url = DownloadLink.parse_url(f"{self.base_url}{asset.href.lstrip('/')}")
+                        url = DownloadLink.parse_url(f"{self.config.api}{asset.href.lstrip('/')}")
                     except Exception:
                         logger.exception(f"Could not parse {asset.href}")
                     yield url
@@ -186,8 +183,8 @@ class Client(object):
             "AuthFlow": "USER_PASSWORD_AUTH",
             "ClientId": config.cognito_client_id,
             "AuthParameters": {
-                "PASSWORD": self.password.get_secret_value(),
-                "USERNAME": self.username,
+                "PASSWORD": self.config.password.get_secret_value(),
+                "USERNAME": self.config.username,
             },
         }
         headers = {

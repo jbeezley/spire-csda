@@ -28,7 +28,7 @@ async def search(
 @pipable_operator
 async def extract_links(item_collection: AsyncIterable[CSDAItemCollection], client: Client) -> AsyncIterator[DownloadLink]:
     """Extract links from STAC features."""
-    base_url = client.base_url
+    base_url = client.config.api
 
     found: MutableMapping[str, bool] = LRUCache(maxsize=client.config.max_deduplication_cache)
     async with streamcontext(item_collection) as streamer:
