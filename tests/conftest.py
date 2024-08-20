@@ -133,8 +133,7 @@ csda_search_fixture = register_fixture(CSDASearchFactory, name="search")
 
 @pytest.fixture
 def config() -> Settings:
-    with Settings(username="test", password="test").context() as c:
-        yield c
+    return Settings(username="test", password="test")
 
 
 @pytest.fixture

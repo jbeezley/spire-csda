@@ -26,8 +26,8 @@ class CSDAClientError(Exception):
 
 
 class Client(object):
-    def __init__(self, config: Optional[Settings] = None) -> None:
-        self.config = config or Settings.current()
+    def __init__(self, config: Settings) -> None:
+        self.config = config
         self.username = self.config.username
         self.password = self.config.password
         self.base_url = self.config.api
@@ -58,7 +58,7 @@ class Client(object):
 
     @asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncClient]:
-        config = Settings.current()
+        config = self.config
         transport = RetryableTransport(config)
 
         async def set_auth(request: Request):
@@ -181,7 +181,7 @@ class Client(object):
         return str(destination)
 
     async def _login(self, session: AsyncClient) -> None:
-        config = Settings.current()
+        config = self.config
         data = {
             "AuthFlow": "USER_PASSWORD_AUTH",
             "ClientId": config.cognito_client_id,
@@ -203,7 +203,7 @@ class Client(object):
         self._refresh_token = auth["RefreshToken"]
 
     async def _refresh(self, session: AsyncClient) -> None:
-        config = Settings.current()
+        config = self.config
 
         # If the refresh token has expired, we try logging in again.
         data = {

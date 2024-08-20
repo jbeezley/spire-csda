@@ -72,7 +72,7 @@ def cli(ctx, username, password, settings_file):
     if password is not None:
         config = config.model_copy(update={"password": SecretStr(password)})
     ctx.ensure_object(dict)
-    ctx.obj["config"] = ctx.with_resource(config.context())
+    ctx.obj["config"] = config
     ctx.obj["client"] = Client(config)
 
 

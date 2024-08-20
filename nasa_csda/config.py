@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
-from contextvars import ContextVar
 import logging
-from typing import Iterator
 
-from pydantic import HttpUrl, SecretStr, ValidationError
+from pydantic import HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger()
@@ -34,24 +31,3 @@ class Settings(BaseSettings):
     use_http2: bool = True
     download_progress: bool = False
     max_deduplication_cache: int = 1000
-
-    @contextmanager
-    def context(self) -> Iterator[Settings]:
-        token = _config.set(self)
-        yield self
-        _config.reset(token)
-
-    @classmethod
-    def current(cls) -> Settings:
-        try:
-            try:
-                config = _config.get()
-            except LookupError:
-                return cls()
-        except ValidationError:
-            logger.error("There are missing or invalid settings. " "See this projects README for settings configuration.")
-            raise
-        return config
-
-
-_config: ContextVar[Settings] = ContextVar("config")
