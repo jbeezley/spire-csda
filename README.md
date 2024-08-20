@@ -92,7 +92,7 @@ downloading files using other tools.
 
 ```bash
 TOKEN="$(nasa-csda-cli token)"
-curl -O -L -H "Authentication: Bearer ${TOKEN}" https://nasa-csda.wx.spire.com/download/spire/2020-01-01T23-56-00_FM104_R15_atmPhs/spire_gnss-ro_L1B_atmPhs_v06.01_2020-01-01T23-56-00_FM104_R15.nc
+curl -O -L -H "Authorization: Bearer ${TOKEN}" https://nasa-csda.wx.spire.com/download/spire/2020-01-01T23-56-00_FM104_R15_atmPhs/spire_gnss-ro_L1B_atmPhs_v06.01_2020-01-01T23-56-00_FM104_R15.nc
 ```
 
 ## Using the SDK

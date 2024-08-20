@@ -60,7 +60,7 @@ class Client(object):
 
         async def set_auth(request: Request):
             if str(self.config.api) in str(request.url):
-                request.headers.setdefault("Authentication", f"Bearer {await self.get_token()}")
+                request.headers.setdefault("Authorization", f"Bearer {await self.get_token()}")
 
         async with AsyncClient(
             transport=transport,
@@ -191,7 +191,7 @@ class Client(object):
             "Content-Type": "application/x-amz-json-1.1",
             "X-Amz-Target": "AWSCognitoIdentityProviderService.InitiateAuth",
         }
-        resp = await session.post("https://cognito-idp.us-east-1.amazonaws.com/", json=data, headers=headers)
+        resp = await session.post(self.config.cognito_endpoint, json=data, headers=headers)
         if resp.status_code != 200:
             raise CSDAClientError("Authentication failure")
         auth = resp.json()["AuthenticationResult"]

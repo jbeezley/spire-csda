@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     password: SecretStr = SecretStr("")
     api: HttpUrl = HttpUrl("https://nasa-csda.wx.spire.com/")
     cognito_client_id: str = "7agre1j1gooj2jng6mkddasp9o"
+    cognito_endpoint: str = "https://cognito-idp.us-east-1.amazonaws.com/"
 
     search_page_size: int = 100
     concurrent_downloads: int = 12
