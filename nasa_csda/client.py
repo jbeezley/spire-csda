@@ -8,6 +8,7 @@ from pathlib import Path, PurePosixPath
 from typing import AsyncIterable, AsyncIterator, Optional, Union
 
 from httpx import AsyncClient, HTTPStatusError, Request
+from tenacity import retry
 from tqdm.asyncio import tqdm
 
 from nasa_csda.config import Settings
@@ -88,6 +89,12 @@ class Client(object):
         session = self.current_session
         token: Optional[str] = None
         item_count = 0
+
+        # https://github.com/encode/httpx/discussions/2056
+        @retry
+        async def execute_query(query):
+            return await session.post("stac/search", json=query)
+
         for query in queries:
             while True:
                 query_json = query.model_copy(update={"token": token, "limit": page_size}).model_dump(
@@ -95,7 +102,7 @@ class Client(object):
                     by_alias=True,
                     exclude_none=True,
                 )
-                resp = await session.post("stac/search", json=query_json)
+                resp = await execute_query(query_json)
                 if resp.status_code != 200:
                     raise ValueError(resp.content)
                 items = CSDAItemCollection.model_validate_json(resp.content)
