@@ -93,7 +93,13 @@ class Client(object):
         # https://github.com/encode/httpx/discussions/2056
         @retry
         async def execute_query(query):
-            return await session.post("stac/search", json=query)
+            resp = await session.post("stac/search", json=query)
+            if resp.status_code == 401:
+                # The token is invalid so log in again
+                self._access_token = None
+            if resp.status_code != 200:
+                raise ValueError(resp.content)
+            return resp
 
         for query in queries:
             while True:
@@ -103,8 +109,6 @@ class Client(object):
                     exclude_none=True,
                 )
                 resp = await execute_query(query_json)
-                if resp.status_code != 200:
-                    raise ValueError(resp.content)
                 items = CSDAItemCollection.model_validate_json(resp.content)
                 yield items
                 token = items.next_token
