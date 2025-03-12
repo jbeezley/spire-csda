@@ -8,7 +8,7 @@ from pathlib import Path, PurePosixPath
 from typing import AsyncIterable, AsyncIterator, Optional, Union
 
 from httpx import AsyncClient, HTTPStatusError, Request
-from tenacity import retry
+from tenacity import retry, stop_after_attempt, wait_random
 from tqdm.asyncio import tqdm
 
 from nasa_csda.config import Settings
@@ -91,12 +91,12 @@ class Client(object):
         item_count = 0
 
         # https://github.com/encode/httpx/discussions/2056
-        @retry
+        @retry(stop=stop_after_attempt(10), wait=wait_random(1, 5))
         async def execute_query(query):
             resp = await session.post("stac/search", json=query)
             if resp.status_code == 401:
                 # The token is invalid so log in again
-                self._access_token = None
+                await self._login(session)
             if resp.status_code != 200:
                 raise ValueError(resp.content)
             return resp
